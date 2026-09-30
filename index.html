@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tanda · Organiza un ahorro rotativo en grupo</title>
+<meta name="description" content="Organiza una tanda / junta / cundina / susu: ahorro rotativo en grupo. Genera el calendario de quién recibe el bote cada ronda. Gratis, en tu navegador.">
+<style>
+  :root{--bg:#0c150f;--card:#152118;--line:#284034;--txt:#eafff2;--mut:#a7c9b6;--accent:#10b981}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);line-height:1.55}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px}
+  header{text-align:center;padding:28px 0 6px}
+  .logo{font-size:1.5rem;font-weight:800}.logo b{color:var(--accent)}
+  header p{color:var(--mut);margin:.3em 0 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin:14px 0}
+  label{display:block;font-weight:600;margin:8px 0 4px}
+  input,select{width:100%;background:#0a1410;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:11px;font-size:1rem}
+  .grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  @media(max-width:600px){.grid{grid-template-columns:1fr}}
+  .p-row{display:flex;gap:8px;margin-top:8px}
+  .p-row input{flex:1}
+  .rm{background:#2a1418;border:1px solid #7c2d3a;color:#fca5a5;border-radius:8px;padding:0 12px;cursor:pointer}
+  .btn{cursor:pointer;border:0;border-radius:12px;padding:13px 18px;font-size:1rem;font-weight:800;color:#04121a;background:var(--accent);margin-top:12px;width:100%}
+  .btn.sec{background:#12251b;color:var(--txt);border:1px solid var(--line)}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;font-size:.95rem}
+  th{color:var(--mut);font-weight:600}
+  .sum{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .stat{flex:1;min-width:130px;background:#0a1410;border:1px solid var(--line);border-radius:12px;padding:12px;text-align:center}
+  .stat b{display:block;font-size:1.3rem;color:var(--accent)}.stat small{color:var(--mut)}
+  footer{text-align:center;color:var(--mut);font-size:.82rem;padding:22px 0 40px;border-top:1px solid var(--line);margin-top:16px}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🤝 <b>Tanda</b></div>
+    <p>Organiza un <strong>ahorro rotativo en grupo</strong> (tanda · junta · cundina · susu) sin líos.</p>
+  </header>
+
+  <div class="card">
+    <label>Participantes</label>
+    <div id="participantes"></div>
+    <button class="btn sec" id="add">+ Añadir participante</button>
+
+    <div class="grid" style="margin-top:14px">
+      <div><label>Aportación por ronda (€)</label><input id="aportacion" type="number" value="50" min="1"></div>
+      <div><label>Frecuencia</label><select id="frecuencia"><option value="mensual">Mensual</option><option value="quincenal">Quincenal</option><option value="semanal">Semanal</option></select></div>
+      <div><label>Fecha de inicio</label><input id="inicio" type="date"></div>
+    </div>
+    <button class="btn" id="gen">Generar calendario de la tanda</button>
+  </div>
+
+  <div id="res"></div>
+
+  <footer>
+    Herramienta <strong>organizativa</strong>, no un producto financiero. El ahorro rotativo se basa en la <strong>confianza</strong> del grupo: acordad las reglas por escrito.<br>
+    Hecho con ❤️ por <a href="https://dataflowelegance.es" target="_blank">DataFlow Elegance</a> · <a href="https://github.com/romebkkk/tanda" target="_blank">GitHub</a>
+  </footer>
+</div>
+
+<script src="tanda.js"></script>
+<script>
+  var $=function(s){return document.querySelector(s);};
+  var T=window.Tanda;
+  $("#inicio").value=new Date().toISOString().slice(0,10);
+  var cont=$("#participantes");
+
+  function addP(nombre){
+    var row=document.createElement("div"); row.className="p-row";
+    row.innerHTML='<input type="text" placeholder="Nombre" value="'+(nombre||"")+'"><button class="rm">✕</button>';
+    row.querySelector(".rm").onclick=function(){ row.remove(); save(); };
+    row.querySelector("input").oninput=save;
+    cont.appendChild(row);
+  }
+  function nombres(){ return [].slice.call(cont.querySelectorAll("input")).map(function(i){return i.value.trim();}).filter(Boolean); }
+  function save(){ try{ localStorage.setItem("tanda:p", JSON.stringify(nombres())); }catch(e){} }
+
+  // cargar
+  var saved=[]; try{ saved=JSON.parse(localStorage.getItem("tanda:p")||"[]"); }catch(e){}
+  if(saved.length) saved.forEach(addP); else { addP("Ana"); addP("Luis"); addP("María"); }
+
+  $("#add").onclick=function(){ addP(""); };
+
+  $("#gen").onclick=function(){
+    save();
+    var r=T.generarTanda({participantes:nombres(), aportacion:parseFloat($("#aportacion").value), frecuencia:$("#frecuencia").value, inicio:$("#inicio").value});
+    if(r.error){ $("#res").innerHTML='<div class="card" style="color:#fca5a5">'+r.error+'</div>'; return; }
+    var rows=r.calendario.map(function(c){ return '<tr><td>'+c.ronda+'</td><td>'+c.fecha+'</td><td><strong>'+c.recibe+'</strong></td><td>'+c.importe_recibido+' €</td></tr>'; }).join("");
+    $("#res").innerHTML='<div class="card">'+
+      '<div class="sum">'+
+        '<div class="stat"><b>'+r.pote_por_ronda+' €</b><small>Bote por ronda</small></div>'+
+        '<div class="stat"><b>'+r.participantes+'</b><small>Participantes / rondas</small></div>'+
+        '<div class="stat"><b>'+r.total_aportado_por_persona+' €</b><small>Aporta cada uno en total</small></div>'+
+      '</div>'+
+      '<table><thead><tr><th>Ronda</th><th>Fecha</th><th>Recibe el bote</th><th>Importe</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+      '<p style="color:var(--mut);font-size:.9rem;margin-top:10px">'+r.nota+'</p>'+
+    '</div>';
+    $("#res").scrollIntoView({behavior:"smooth"});
+  };
+</script>
+</body>
+</html>
